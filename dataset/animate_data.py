@@ -1,5 +1,3 @@
-from datetime import datetime, timedelta
-
 import cmocean
 import matplotlib.animation as animation
 import matplotlib.colors as colors
@@ -8,8 +6,45 @@ import pandas as pd
 from cartopy import crs as ccrs
 from matplotlib import pyplot as plt
 from matplotlib.cm import ScalarMappable
-from mpl_toolkits.axes_grid1 import make_axes_locatable
 from netCDF4 import Dataset
+
+
+def read_and_merge(dataset, time_string, trajectory_string, variable_string):
+    reference_time = np.datetime64(dataset[time_string].units[14:])
+
+    buoy_time = reference_time + dataset[time_string][:].astype("timedelta64[s]")
+
+    buoy_df_list = []
+
+    for traj, data, time in zip(
+        dataset[trajectory_string],
+        dataset[variable_string],
+        buoy_time,
+    ):
+        buoy_df_list.append(
+            pd.DataFrame(
+                {f"{traj[8:]}_{variable_string}": data},
+                index=time,
+            )
+            .resample("60min")
+            .mean()
+            .dropna()
+        )
+
+    full_df = pd.merge(
+        buoy_df_list[0],
+        buoy_df_list[1],
+        how="outer",
+        left_index=True,
+        right_index=True,
+    )
+
+    for buoy_df in buoy_df_list[2:]:
+        full_df = pd.merge(
+            full_df, buoy_df, how="outer", left_index=True, right_index=True
+        )
+
+    return full_df
 
 
 def main():
@@ -27,38 +62,48 @@ def main():
         lat = constants["lat"][:]
         lon = constants["lon"][:]
 
-    buoy_kvs_10_idx = 9
-    reference_time_temp = np.datetime64(dataset["time_temp"].units[14:])
+    # TODO:
+    # Merge DataFrames into one, wuth mutliindex both datetime and buoy_id
 
-    buoy_kvs_10_idx_time_temp = reference_time_temp + dataset["time_temp"][
-        buoy_kvs_10_idx, :
-    ].astype("timedelta64[s]")
-    buoy_kvs_10_t1m = dataset["temp_air_raw"][buoy_kvs_10_idx, :]
-    buoy_kvs_10_temp_df = (
-        pd.DataFrame({"t1m": buoy_kvs_10_t1m}, index=buoy_kvs_10_idx_time_temp)
-        .resample("60min")
-        .mean()
+    full_temp_df = read_and_merge(dataset, "time_temp", "trajectory", "temp_air_raw")
+    full_lat_df = read_and_merge(dataset, "time", "trajectory", "lat")
+    full_lon_df = read_and_merge(dataset, "time", "trajectory", "lon")
+    full_latlon_df = pd.merge(
+        full_lat_df, full_lon_df, left_index=True, right_index=True
     )
 
-    reference_time_traj = np.datetime64(dataset["time"].units[14:])
-    buoy_kvs_10_time_traj = reference_time_traj + dataset["time"][
-        buoy_kvs_10_idx, :
-    ].astype("timedelta64[s]")
+    full_latlontemp_df = pd.merge(
+        full_latlon_df, full_temp_df, left_index=True, right_index=True
+    )
 
-    buoy_kvs_10_traj_df = (
-        pd.DataFrame(
-            {
-                "lat": dataset["lat"][buoy_kvs_10_idx, :],
-                "lon": dataset["lon"][buoy_kvs_10_idx, :],
-            },
-            index=buoy_kvs_10_time_traj,
+    buoy_indices = []
+
+    for col in full_latlontemp_df.columns:
+        if "lat" in col or "lon" in col or "temp" in col:
+            buoy_ind = (
+                col.split("_")[0] + "_" + col.split("_")[1] + "_" + col.split("_")[2]
+            )
+            buoy_indices.append(buoy_ind)
+
+    reshaped_data = []
+    for buoy_idx in buoy_indices:
+        lat_col = f"{buoy_idx}_lat"
+        lon_col = f"{buoy_idx}_lon"
+        temp_col = f"{buoy_idx}_temp_air_raw"
+
+        reshaped_data.append(
+            pd.DataFrame(
+                {
+                    "lat": full_latlontemp_df[lat_col],
+                    "lon": full_latlontemp_df[lon_col],
+                    "t1m": full_latlontemp_df[temp_col],
+                }
+            ).assign(KVS_BUOY_IDX=buoy_idx)
         )
-        .resample("60min")
-        .mean()
-    )
 
-    full_df = pd.merge(
-        buoy_kvs_10_traj_df, buoy_kvs_10_temp_df, left_index=True, right_index=True
+    full_latlontemp_df = pd.concat(reshaped_data)
+    full_latlontemp_df.set_index(
+        ["KVS_BUOY_IDX", full_latlontemp_df.index], inplace=True
     )
 
     def create_animation():
@@ -73,62 +118,88 @@ def main():
         gl.bottom_labels = False
         gl.right_labels = False
 
-        vmin_temp = full_df["t1m"].min()
-        vmax_temp = full_df["t1m"].max()
+        vmin_temp = full_latlontemp_df["t1m"].quantile(0.05)
+        vmax_temp = full_latlontemp_df["t1m"].quantile(0.95)
 
-        times = full_df.index.values
-
-        # dummy_ice = ax.pcolormesh([[0,1]], [[0,1]], [[0,1]], cmap = cmocean.cm.ice, transform = data_proj, vmin = 0, vmax = 1)
-        # ice_cbar = fig.colorbar(dummy_ice, ax = ax, label = 'SIC')
-
-        # dummy_scatter = ax.scatter([], [], c=[], cmap = cmocean.cm.thermal, transform = data_proj, vmin = vmin_temp, vmax = vmax_temp)
-        # divider = make_axes_locatable(ax)
-        # cax = divider.append_axes("right", size="5%", pad=0.1, axes_class = plt.Axes)
+        times = sorted(full_latlontemp_df.index.get_level_values(1).unique())
 
         norm = colors.Normalize(vmin=vmin_temp, vmax=vmax_temp)
         sm = ScalarMappable(norm=norm, cmap=cmocean.cm.thermal)
         cbar = fig.colorbar(sm, ax=ax, label="Temperature [T1M]")
-        # cbar.mappable = sm
-        # ax.__last_mappable = None
-
-        # dummy_scatter.remove()
 
         norm_ice = colors.Normalize(vmin=0, vmax=1)
 
-        # dummy_ice.remove()
-        # cb.remove()
-
         ice_pcolormesh = None
-        scatter_plots = []
+        all_scatter_plots = []
 
-        # points_per_frame = max(1, len(full_df) // 50)
-        points_per_frame = 6  # Hours
+        # Color map for different buoys
+        unique_kvs_indices = full_latlontemp_df.index.get_level_values(0).unique()
+        buoy_colors = plt.cm.tab10(np.linspace(0, 1, len(unique_kvs_indices)))
+        buoy_color_map = dict(zip(unique_kvs_indices, buoy_colors))
+
+        # Set timesteps per frame
+        timesteps_per_frame = 6  # Hours
 
         def animate(frame):
-            nonlocal ice_pcolormesh, scatter_plots
+            nonlocal ice_pcolormesh, all_scatter_plots
 
             if ice_pcolormesh is not None:
                 ice_pcolormesh.remove()
                 ice_pcolormesh = None
 
-            start_idx = frame * points_per_frame
-            end_idx = min(start_idx + points_per_frame, len(full_df))
+            start_idx = frame * timesteps_per_frame
+            end_idx = min(
+                start_idx + timesteps_per_frame,
+                len(full_latlontemp_df.index.get_level_values(1).unique()),
+            )
 
-            if start_idx < len(full_df):
-                new_time = times[start_idx:end_idx][0].astype(datetime)
-                print(f"{new_time=}")
-                new_lons = full_df["lon"].iloc[start_idx:end_idx].values
-                new_lats = full_df["lat"].iloc[start_idx:end_idx].values
-                new_temps = full_df["t1m"].iloc[start_idx:end_idx].values
+            new_scatter_plots = []  # New scatter plots for this frame
 
-                # try:
+            if start_idx < len(times):
+                time_range = times[start_idx:end_idx]
+
+                print(f"Frame {frame}, Time range: {time_range[0]} to {time_range[-1]}")
+
+                frame_data = full_latlontemp_df[
+                    full_latlontemp_df.index.get_level_values(1).isin(time_range)
+                ]
+
+                if not frame_data.empty:
+                    clean_data = frame_data.dropna()
+
+                    if not clean_data.empty:
+                        # Get buoy indices for edge colors
+                        buoy_indices = clean_data.index.get_level_values(0)
+                        edge_colors = [buoy_color_map[idx] for idx in buoy_indices]
+
+                        # plot all data points in frame at once
+                        scatter = ax.scatter(
+                            clean_data["lon"],
+                            clean_data["lat"],
+                            c=clean_data["t1m"],
+                            cmap=cmocean.cm.thermal,
+                            norm=norm,
+                            transform=data_proj,
+                            edgecolors=edge_colors,
+                            linewidths=0.5,
+                            zorder=3,
+                        )
+
+                        new_scatter_plots.append(scatter)
+                        all_scatter_plots.append(scatter)
+
+                        max_scatter_plots = 10
+                        while len(all_scatter_plots) > max_scatter_plots:
+                            old_scatter = all_scatter_plots.pop(0)
+                            old_scatter.remove()
+
+                        for i, sc in enumerate(all_scatter_plots):
+                            alpha = (i + 1) / len(all_scatter_plots)
+                            sc.set_alpha(alpha)
+
                 new_ice = Dataset(
-                    f"{carra_path}{new_time.year}/{new_time.month:02d}/CARRA_extracted_sic_{new_time.strftime('%Y%m%d')}.nc"
+                    f"{carra_path}{time_range[-1].year}/{time_range[-1].month:02d}/CARRA_extracted_sic_{time_range[-1].strftime('%Y%m%d')}.nc"
                 )["ci"][0, :]
-
-                # except FileNotFoundError:
-                # prev_time = new_time - timedelta(days = 1)
-                # new_ice = Dataset(f"{amsr2_path}{prev_time.year}/{prev_time.month:02d}/RegridAMSR2_{prev_time.strftime('%Y%m%d')}.nc")['amsr2'][:]
 
                 ice_pcolormesh = ax.pcolormesh(
                     lon,
@@ -140,33 +211,25 @@ def main():
                     zorder=0,
                 )
 
-                new_scatter = ax.scatter(
-                    new_lons,
-                    new_lats,
-                    c=new_temps,
-                    cmap=cmocean.cm.thermal,
-                    norm=norm,
-                    transform=data_proj,
-                    zorder=1,
+                ax.set_title(
+                    f"Buoy KVS-10 Track - {time_range[-1].strftime('%Y-%m-%d')}",
+                    fontsize=14,
+                    pad=20,
                 )
 
-                scatter_plots.append(new_scatter)
-
-            # total_points = min(end_idx, len(full_df))
-            ax.set_title(
-                f"Buoy KVS-10 Track - {new_time.strftime('%Y-%m-%d')}",
-                fontsize=14,
-                pad=20,
-            )
-
             # return scatter_plots
-            return (
-                [ice_pcolormesh] + scatter_plots
-                if ice_pcolormesh is not None
-                else scatter_plots
-            )
+            artists = new_scatter_plots
 
-        total_frames = (len(full_df) + points_per_frame - 1) // points_per_frame
+            if ice_pcolormesh is not None:
+                artists.append(ice_pcolormesh)
+
+            return artists
+
+        total_frames = (
+            len(full_latlontemp_df.index.get_level_values(1).unique())
+            + timesteps_per_frame
+            - 1
+        ) // timesteps_per_frame
 
         anim = animation.FuncAnimation(
             fig, animate, frames=total_frames, interval=100, repeat=True, blit=False
@@ -178,8 +241,8 @@ def main():
     print("Writing .gif")
     anim.save("scatter_animation.gif", writer="pillow", fps=10)
 
-    # print('Writing .mp4')
-    # anim.save('scatter_animation.mp4', writer='ffmpeg', fps = 10)
+    # print("Writing .mp4")
+    # anim.save("scatter_animation.mp4", writer="ffmpeg", fps=10)
 
     # Show figure
     # plt.tight_layout()
