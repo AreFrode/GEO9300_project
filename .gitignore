@@ -250,5 +250,6 @@ $RECYCLE.BIN/
 # Windows shortcuts
 *.lnk
 
-# Nc-files
+# Data-files
 *.nc
+*.csv
