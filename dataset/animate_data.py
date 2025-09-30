@@ -12,7 +12,8 @@ from netCDF4 import Dataset
 def read_and_merge(dataset, time_string, trajectory_string, variable_string):
     reference_time = np.datetime64(dataset[time_string].units[14:])
 
-    buoy_time = reference_time + dataset[time_string][:].astype("timedelta64[s]")
+    buoy_time = reference_time + \
+        dataset[time_string][:].astype("timedelta64[s]")
 
     buoy_df_list = []
 
@@ -65,7 +66,8 @@ def main():
     # TODO:
     # Merge DataFrames into one, wuth mutliindex both datetime and buoy_id
 
-    full_temp_df = read_and_merge(dataset, "time_temp", "trajectory", "temp_air_raw")
+    full_temp_df = read_and_merge(
+        dataset, "time_temp", "trajectory", "temp_air_raw")
     full_lat_df = read_and_merge(dataset, "time", "trajectory", "lat")
     full_lon_df = read_and_merge(dataset, "time", "trajectory", "lon")
     full_latlon_df = pd.merge(
@@ -81,7 +83,8 @@ def main():
     for col in full_latlontemp_df.columns:
         if "lat" in col or "lon" in col or "temp" in col:
             buoy_ind = (
-                col.split("_")[0] + "_" + col.split("_")[1] + "_" + col.split("_")[2]
+                col.split("_")[0] + "_" + col.split("_")[1] +
+                "_" + col.split("_")[2]
             )
             buoy_indices.append(buoy_ind)
 
@@ -109,11 +112,13 @@ def main():
     def create_animation():
         map_proj = ccrs.NorthPolarStereo(central_longitude=10)
         data_proj = ccrs.PlateCarree()
-        fig, ax = plt.subplots(figsize=(10, 6), subplot_kw={"projection": map_proj})
+        fig, ax = plt.subplots(figsize=(10, 6), subplot_kw={
+                               "projection": map_proj})
 
         ax.set_extent([-1, 25, 79, 82], crs=data_proj)
         ax.coastlines()
-        gl = ax.gridlines(draw_labels=True, dms=True, x_inline=False, y_inline=False)
+        gl = ax.gridlines(draw_labels=True, dms=True,
+                          x_inline=False, y_inline=False)
 
         gl.bottom_labels = False
         gl.right_labels = False
@@ -133,7 +138,8 @@ def main():
         all_scatter_plots = []
 
         # Color map for different buoys
-        unique_kvs_indices = full_latlontemp_df.index.get_level_values(0).unique()
+        unique_kvs_indices = full_latlontemp_df.index.get_level_values(
+            0).unique()
         buoy_colors = plt.cm.tab10(np.linspace(0, 1, len(unique_kvs_indices)))
         buoy_color_map = dict(zip(unique_kvs_indices, buoy_colors))
 
@@ -158,10 +164,12 @@ def main():
             if start_idx < len(times):
                 time_range = times[start_idx:end_idx]
 
-                print(f"Frame {frame}, Time range: {time_range[0]} to {time_range[-1]}")
+                print(
+                    f"Frame {frame}, Time range: {time_range[0]} to {time_range[-1]}")
 
                 frame_data = full_latlontemp_df[
-                    full_latlontemp_df.index.get_level_values(1).isin(time_range)
+                    full_latlontemp_df.index.get_level_values(
+                        1).isin(time_range)
                 ]
 
                 if not frame_data.empty:
@@ -170,7 +178,8 @@ def main():
                     if not clean_data.empty:
                         # Get buoy indices for edge colors
                         buoy_indices = clean_data.index.get_level_values(0)
-                        edge_colors = [buoy_color_map[idx] for idx in buoy_indices]
+                        edge_colors = [buoy_color_map[idx]
+                                       for idx in buoy_indices]
 
                         # plot all data points in frame at once
                         scatter = ax.scatter(
