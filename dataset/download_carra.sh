@@ -5,7 +5,8 @@ year=2025
 echo "downloading Carra"
 
 atosdir="/ec/res4/scratch/nor1878/carra_retrievals/${year}/"
-localdir="/lustre/storeB/project/metkl/DigitalSeaIce/are-phd/GEO9300_project/dataset/CARRA/${year}/"
+# TODO: remember to fix lustre path to local path if initiating another download
+# localdir="/lustre/storeB/project/metkl/DigitalSeaIce/are-phd/GEO9300_project/dataset/CARRA/${year}/"
 rsync_options="-avz"
 
 for MM in {04..07}; do
