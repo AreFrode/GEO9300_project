@@ -57,6 +57,9 @@ def read_and_merge(
 def main():
     path_data = "/home/arefk/phd/geo9300/GEO9300_project/dataset/"
     buoys_path = f"{path_data}2025_KVS_deployment_nonQCdata_v01.nc"
+    aa_path = (
+        "/lustre/storeB/immutable/archive/projects/metproduction/DNMI_AROME_ARCTIC/"
+    )
 
     buoys_data = Dataset(buoys_path, mode="r", format="NETCDF4")
 
@@ -110,6 +113,49 @@ def main():
 
         for idx in row.index:
             if idx.endswith("_sic") and not pd.isna(row[idx]):
+                row_lat = row[f"{idx[:-3]}lat"]
+                row_lon = row[f"{idx[:-3]}lon"]
+
+                row_x, row_y = transformer_to_carra.transform(row_lat, row_lon)
+
+                x_idx = (np.abs(carra_x - row_x)).argmin()
+                y_idx = (np.abs(carra_y - row_y)).argmin()
+
+                merged_df.at[ts, idx] = current_sic[y_idx, x_idx]
+    # T2M column to merged_df here then merge with temp dfs
+    new_columns = merged_df.columns.str.replace("lon", "t2m_arome")
+    merged_df = merged_df.assign(
+        **{
+            new_col: merged_df[col]
+            for new_col, col in zip(new_columns, merged_df.columns)
+        }
+    )
+
+    # Same processing as for CARRA, but with AROME Arctic T2M
+
+    with Dataset(
+        f"{aa_path}2024/04/27/arome_arctic_det_2_5km_20240427T00Z.nc", "r"
+    ) as nc_carra_const:
+        arome_x = nc_carra_const["x"][:]
+        arome_y = nc_carra_const["y"][:]
+        proj_arome = vars(nc_carra_const["projection_lambert"])
+
+    proj4_arome = f"+proj=lcc +lat_0={int(proj_arome['standard_parallel'])} +lon_0={int(proj_arome['longitude_of_central_meridian'])} +lat_1={int(proj_arome['latitude_of_projection_origin'])} +R={int(proj_arome['earth_radius'])}"
+
+    crs_arome = CRS.from_proj4(proj4_carra)
+    transformer_to_arome = Transformer.from_crs(crs_wgs84, crs_arome)
+
+    for ts, row in merged_df.iterrows():
+        print(f"{ts=}")
+        exit()
+        # Extract current CARRA SIC field
+        with Dataset(
+            f"{aa_path}/{ts.year}/{ts.month:02d}/{ts.day:02d}/arome_arctic_det_2_5km_{ts.year}{ts.month:02d}{ts.day:02d}.nc"
+        ) as nc_arome:
+            current_t2m = nc_arome["air_temperature_2m"][:24, 0]
+
+        for idx in row.index:
+            if idx.endswith("_t2m_arome") and not pd.isna(row[idx]):
                 row_lat = row[f"{idx[:-3]}lat"]
                 row_lon = row[f"{idx[:-3]}lon"]
 
