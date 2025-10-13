@@ -5,14 +5,13 @@ Script for extracting relevant variables from .nc file, as well as prepare a SIC
 # Author: Are Frode Kvanum
 # Created 04-10-2025
 
-
-from datetime import datetime, timedelta
-
 import numpy as np
 import pandas as pd
 from netCDF4 import Dataset
 from pyproj import CRS, Transformer
+from scipy.constants import convert_temperature
 
+from tqdm import tqdm
 
 def read_and_merge(
     dataset: Dataset, time_string: str, trajectory_string: str, variable_string: str
@@ -55,7 +54,9 @@ def read_and_merge(
 
 
 def main():
-    path_data = "/home/arefk/phd/geo9300/GEO9300_project/dataset/"
+    # path_data = "/home/arefk/phd/geo9300/GEO9300_project/dataset/"
+    # path home on lustre
+    path_data = "/lustre/storeB/project/metkl/DigitalSeaIce/are-phd/GEO9300_project/dataset/"
     buoys_path = f"{path_data}2025_KVS_deployment_nonQCdata_v01.nc"
     aa_path = (
         "/lustre/storeB/immutable/archive/projects/metproduction/DNMI_AROME_ARCTIC/"
@@ -104,7 +105,7 @@ def main():
     crs_carra = CRS.from_proj4(proj4_carra)
     transformer_to_carra = Transformer.from_crs(crs_wgs84, crs_carra)
 
-    for ts, row in merged_df.iterrows():
+    for ts, row in tqdm(merged_df.iterrows(), total = merged_df.shape[0]):
         # Extract current CARRA SIC field
         with Dataset(
             f"{path_data}CARRA/{ts.year}/{ts.month:02d}/CARRA_extracted_sic_{ts.year}{ts.month:02d}{ts.day:02d}.nc"
@@ -122,6 +123,7 @@ def main():
                 y_idx = (np.abs(carra_y - row_y)).argmin()
 
                 merged_df.at[ts, idx] = current_sic[y_idx, x_idx]
+
     # T2M column to merged_df here then merge with temp dfs
     new_columns = merged_df.columns.str.replace("lon", "t2m_arome")
     merged_df = merged_df.assign(
@@ -130,6 +132,7 @@ def main():
             for new_col, col in zip(new_columns, merged_df.columns)
         }
     )
+
 
     # Same processing as for CARRA, but with AROME Arctic T2M
 
@@ -140,31 +143,38 @@ def main():
         arome_y = nc_carra_const["y"][:]
         proj_arome = vars(nc_carra_const["projection_lambert"])
 
-    proj4_arome = f"+proj=lcc +lat_0={int(proj_arome['standard_parallel'])} +lon_0={int(proj_arome['longitude_of_central_meridian'])} +lat_1={int(proj_arome['latitude_of_projection_origin'])} +R={int(proj_arome['earth_radius'])}"
+    proj4_arome = f"+proj=lcc +lat_0={int(proj_arome['standard_parallel'][0])} +lon_0={int(proj_arome['longitude_of_central_meridian'])} +lat_1={int(proj_arome['latitude_of_projection_origin'])} +R={int(proj_arome['earth_radius'])}"
 
-    crs_arome = CRS.from_proj4(proj4_carra)
+    crs_arome = CRS.from_proj4(proj4_arome)
     transformer_to_arome = Transformer.from_crs(crs_wgs84, crs_arome)
 
-    for ts, row in merged_df.iterrows():
-        print(f"{ts=}")
-        exit()
+    for ts, row in tqdm(merged_df.iterrows(), total=merged_df.shape[0]):
         # Extract current CARRA SIC field
-        with Dataset(
-            f"{aa_path}/{ts.year}/{ts.month:02d}/{ts.day:02d}/arome_arctic_det_2_5km_{ts.year}{ts.month:02d}{ts.day:02d}.nc"
-        ) as nc_arome:
-            current_t2m = nc_arome["air_temperature_2m"][:24, 0]
+        # If file not found, use previous day's forecast
+        try:
+            with Dataset(
+                f"{aa_path}{ts.year}/{ts.month:02d}/{ts.day:02d}/arome_arctic_det_2_5km_{ts.year}{ts.month:02d}{ts.day:02d}T00Z.nc"
+            ) as nc_arome:
+                current_t2m = nc_arome["air_temperature_2m"][int(ts.hour), 0]
+        except FileNotFoundError:
+            local_time = ts - pd.tseries.offsets.Day()
+            with Dataset(
+                f"{aa_path}{local_time.year}/{local_time.month:02d}/{local_time.day:02d}/arome_arctic_det_2_5km_{local_time.year}{local_time.month:02d}{local_time.day:02d}T00Z.nc"
+            ) as nc_arome:
+                current_t2m = nc_arome["air_temperature_2m"][24 + int(ts.hour), 0]
+
 
         for idx in row.index:
             if idx.endswith("_t2m_arome") and not pd.isna(row[idx]):
-                row_lat = row[f"{idx[:-3]}lat"]
-                row_lon = row[f"{idx[:-3]}lon"]
+                row_lat = row[f"{idx[:-9]}lat"]
+                row_lon = row[f"{idx[:-9]}lon"]
 
-                row_x, row_y = transformer_to_carra.transform(row_lat, row_lon)
+                row_x, row_y = transformer_to_arome.transform(row_lat, row_lon)
 
-                x_idx = (np.abs(carra_x - row_x)).argmin()
-                y_idx = (np.abs(carra_y - row_y)).argmin()
+                x_idx = (np.abs(arome_x - row_x)).argmin()
+                y_idx = (np.abs(arome_y - row_y)).argmin()
 
-                merged_df.at[ts, idx] = current_sic[y_idx, x_idx]
+                merged_df.at[ts, idx] = convert_temperature(current_t2m[y_idx, x_idx], 'K', 'C')
 
     temp_dfs = [full_temp_df, full_surf_df, full_sii_df, full_ice_df]
 
@@ -184,6 +194,7 @@ def main():
     for buoy_idx in buoy_indices:
         lat_col = f"{buoy_idx}_lat"
         lon_col = f"{buoy_idx}_lon"
+        t2m_col = f"{buoy_idx}_t2m_arome"
         temp_col = f"{buoy_idx}_temp_air_raw"
         surf_col = f"{buoy_idx}_temp_mlx_internal"
         sii_col = f"{buoy_idx}_temp_snow_ice_raw"
@@ -195,6 +206,7 @@ def main():
                 {
                     "lat": merged_df[lat_col],
                     "lon": merged_df[lon_col],
+                    "arome_t2m": merged_df[t2m_col],
                     "temp_air": merged_df[temp_col],
                     "temp_surf": merged_df[surf_col],
                     "temp_snow_ice": merged_df[sii_col],
@@ -212,7 +224,7 @@ def main():
     full_latlontemp_df.to_csv(f"{path_data}prepared_buoy_data.csv")
 
     test_df = pd.read_csv(f"{path_data}prepared_buoy_data.csv", index_col=[0, 1])
-    print(test_df)
+    # print(test_df)
 
 
 if __name__ == "__main__":
