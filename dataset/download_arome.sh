@@ -1,4 +1,5 @@
 #!/bin/bash
+# This is a smaller change
 
 year=2025
 
