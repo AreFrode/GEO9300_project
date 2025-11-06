@@ -253,3 +253,6 @@ $RECYCLE.BIN/
 # Data-files
 *.nc
 *.csv
+
+# Figures
+*.png
