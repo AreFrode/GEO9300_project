@@ -79,11 +79,14 @@ def add_cyclic_time(df):
 
     return df
 
+def rmse(pred, target):
+    return np.sqrt(np.mean((pred - target)**2))
 # #### Prepare data
 
 
 def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Using device: {device}")
 
     path_data = "../dataset/"
     buoys_df = pd.read_csv(
@@ -131,12 +134,16 @@ def main():
     val_loader = torch.utils.data.DataLoader(
         val_dataset, batch_size=64, shuffle=True, pin_memory=True)
 
+    rmse_val_loader = torch.utils.data.DataLoader(
+        val_dataset, batch_size=64, shuffle=False, pin_memory=True)
+
     # #### Define model
     criterion = nn.MSELoss()
 
     # #### training loop
 
     best_params = None
+    best_rmse = float('inf')
     best_loss = float('inf')
 
     param_grid = {
@@ -144,6 +151,8 @@ def main():
         'epochs': [20, 100, 200],
         'hidden_sizes': [[16, 32], [16, 32, 64], [16, 32, 64, 128], [32, 64, 128], [32, 64]]
     }
+
+    validation_rmse = float('inf')
 
     for params in ParameterGrid(param_grid):
 
@@ -183,20 +192,44 @@ def main():
             total_val_loss = []
             with torch.no_grad():
                 for X, y in val_loader:
+                    X = X.to(device)
+                    y = y.to(device)
+
                     val_pred = model(X)
                     total_val_loss.append(criterion(val_pred, y).item())
 
             prog_bar.set_postfix({'loss': f"{np.mean(total_loss):.4f}",
-                                  "val_loss": f"{np.mean(total_val_loss):.4f}"})
+                                  "val_loss": f"{np.mean(total_val_loss):.4f}",
+                                  "val_rmse": f"{validation_rmse:.4f}"})
             scheduler.step(np.mean(total_val_loss))
 
-        if np.mean(total_val_loss) < best_loss:
+        final_rmse_X = []
+        model.eval()
+        with torch.no_grad():
+            for X, y in rmse_val_loader:
+                X = X.to(device)
+
+                val_pred = model(X).cpu()
+                final_rmse_X.extend(val_pred)
+
+        # print(final_rmse_X[:5])
+        # print(kvs['arome_t2m'].shape)
+        arome_t2m = scaler.inverse_transform(X_val[:, :2])[:,0]
+        validation_rmse = rmse(arome_t2m + final_rmse_X, arome_t2m + y_val.to_numpy())
+        prog_bar.set_postfix({'loss': f"{np.mean(total_loss):.4f}",
+                                "val_loss": f"{np.mean(total_val_loss):.4f}",
+                                "val_rmse": f"{validation_rmse:.4f}"})
+
+
+        if validation_rmse < best_rmse:
+            best_rmse = validation_rmse
             best_loss = np.mean(total_val_loss)
             best_params = params
 
     os.makedirs('models/', exist_ok=True)
 
     print(best_loss)
+    print(best_rmse)
     print(best_params)
 
     exit()
