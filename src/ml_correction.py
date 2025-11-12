@@ -83,6 +83,8 @@ def add_cyclic_time(df):
 
 
 def main():
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
     path_data = "../dataset/"
     buoys_df = pd.read_csv(
         f"{path_data}prepared_buoy_data.csv", index_col=[0, 1])
@@ -125,23 +127,14 @@ def main():
     val_dataset = BuoyDataset(X_val, y_val.to_numpy())
 
     train_loader = torch.utils.data.DataLoader(
-        train_dataset, batch_size=64, shuffle=True)
+        train_dataset, batch_size=64, shuffle=True, pin_memory=True)
     val_loader = torch.utils.data.DataLoader(
-        val_dataset, batch_size=64, shuffle=True)
+        val_dataset, batch_size=64, shuffle=True, pin_memory=True)
 
     # #### Define model
+    criterion = nn.MSELoss()
 
     # #### training loop
-
-    model = LessSimpleMLP(in_size=X_train.shape[1])
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer,
-        mode='min',
-        factor=0.5,
-        patience=10
-    )
-    criterion = nn.MSELoss()
 
     best_params = None
     best_loss = float('inf')
@@ -155,7 +148,7 @@ def main():
     for params in ParameterGrid(param_grid):
 
         model = LessSimpleMLP(
-            in_size=X_train.shape[1], hidden_sizes=params['hidden_sizes'])
+            in_size=X_train.shape[1], hidden_sizes=params['hidden_sizes']).to(device)
         optimizer = torch.optim.Adam(model.parameters(), lr=params['lr'])
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
             optimizer,
@@ -165,15 +158,18 @@ def main():
         )
 
         prog_bar = tqdm(range(params['epochs']))
+        total_val_loss = []
 
         for epoch in prog_bar:
             prog_bar.set_description(
-                desc=f"Epoch: {epoch+1}, lr: {optimizer.param_groups[0]["lr"]}")
+                desc=f"Epoch: {epoch+1}, lr: {optimizer.param_groups[0]['lr']}")
             model.train()
             total_loss = []
 
             # training
             for X, y in train_loader:
+                X = X.to(device)
+                y = y.to(device)
                 optimizer.zero_grad()
                 preds = model(X)
 
