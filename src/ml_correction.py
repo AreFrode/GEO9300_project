@@ -70,12 +70,14 @@ class LessSimpleMLP(nn.Module):
         return self.net(x)
 
 
-def add_cyclic_time(df):
-    df['hour_sin'] = np.sin(2 * np.pi * df['hour'] / 24)
-    df['hour_cos'] = np.cos(2 * np.pi * df['hour'] / 24)
-
+def add_cyclic_time(df, dayonly = False):
     df['day_sin'] = np.sin(2 * np.pi * df['doy'] / 365)
     df['day_cos'] = np.cos(2 * np.pi * df['doy'] / 365)
+
+    if not dayonly:
+        df['hour_sin'] = np.sin(2 * np.pi * df['hour'] / 24)
+        df['hour_cos'] = np.cos(2 * np.pi * df['hour'] / 24)
+
 
     return df
 
@@ -145,6 +147,7 @@ def main():
     best_params = None
     best_rmse = float('inf')
     best_loss = float('inf')
+    best_model = None
 
     param_grid = {
         'lr': [0.001, 0.01, 0.1],
@@ -225,6 +228,7 @@ def main():
             best_rmse = validation_rmse
             best_loss = np.mean(total_val_loss)
             best_params = params
+            best_model = model
 
     os.makedirs('models/', exist_ok=True)
 
@@ -232,9 +236,8 @@ def main():
     print(best_rmse)
     print(best_params)
 
-    exit()
 
-    torch.save(model, 'models/diamond_dnn.pt')
+    torch.save(best_model, 'models/best_diamond_dnn.pt')
     dump(scaler, 'models/X_train_scaler.bin', compress=True)
 
 
