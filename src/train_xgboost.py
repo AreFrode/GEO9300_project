@@ -1,13 +1,12 @@
-
 import os
 
 import pandas as pd
 import numpy as np
 
-from xgboost import XGBRegressor
+from xgboost import XGBRegressor, plot_importance
 
 from sklearn.model_selection import train_test_split, GridSearchCV
-
+from matplotlib import pyplot as plt
 from ml_correction import add_cyclic_time
 
 
@@ -54,8 +53,7 @@ def main():
         'colsample_bytree': [0.6, 0.8, 1.0]
     }
 
-    model = XGBRegressor(objective='reg:squarederror',
-                         n_estimators=100, random_state=1913)
+    model = XGBRegressor(objective='reg:squarederror',random_state=1913)
 
     grid_search = GridSearchCV(
         estimator=model, param_grid=param_grid, cv=3, n_jobs=-1, verbose=1
@@ -71,6 +69,9 @@ def main():
     os.makedirs('models/', exist_ok=True)
 
     model.save_model("models/xgboost_model.json")
+
+    plot_importance(model, importance_type='gain')
+    plt.savefig('xgboost_feature_importance.png')
 
 
 if __name__ == "__main__":
