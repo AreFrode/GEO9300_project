@@ -53,7 +53,7 @@ def main():
         'colsample_bytree': [0.6, 0.8, 1.0]
     }
 
-    model = XGBRegressor(objective='reg:squarederror',random_state=1913)
+    model = XGBRegressor(objective='reg:squarederror', random_state=1913)
 
     grid_search = GridSearchCV(
         estimator=model, param_grid=param_grid, cv=3, n_jobs=-1, verbose=1
