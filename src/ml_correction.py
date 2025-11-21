@@ -1,3 +1,5 @@
+# Train a Deep Neural Network
+
 import torch
 import os
 
@@ -70,14 +72,16 @@ class LessSimpleMLP(nn.Module):
         return self.net(x)
 
 
-def add_cyclic_time(df):
-    df['hour_sin'] = np.sin(2 * np.pi * df['hour'] / 24)
-    df['hour_cos'] = np.cos(2 * np.pi * df['hour'] / 24)
-
+def add_cyclic_time(df, dayonly=False):
     df['day_sin'] = np.sin(2 * np.pi * df['doy'] / 365)
     df['day_cos'] = np.cos(2 * np.pi * df['doy'] / 365)
 
+    if not dayonly:
+        df['hour_sin'] = np.sin(2 * np.pi * df['hour'] / 24)
+        df['hour_cos'] = np.cos(2 * np.pi * df['hour'] / 24)
+
     return df
+
 
 def rmse(pred, target):
     return np.sqrt(np.mean((pred - target)**2))
@@ -136,6 +140,10 @@ def main():
     rmse_val_loader = torch.utils.data.DataLoader(
         val_dataset, batch_size=64, shuffle=False, pin_memory=True)
 
+    # print(len(train_dataset))
+    # print(len(val_dataset))
+    # exit()
+
     # #### Define model
     criterion = nn.MSELoss()
 
@@ -144,6 +152,7 @@ def main():
     best_params = None
     best_rmse = float('inf')
     best_loss = float('inf')
+    best_model = None
 
     param_grid = {
         'lr': [0.001, 0.01, 0.1],
@@ -213,17 +222,18 @@ def main():
 
         # print(final_rmse_X[:5])
         # print(kvs['arome_t2m'].shape)
-        arome_t2m = scaler.inverse_transform(X_val[:, :2])[:,0]
-        validation_rmse = rmse(arome_t2m + final_rmse_X, arome_t2m + y_val.to_numpy())
+        arome_t2m = scaler.inverse_transform(X_val[:, :2])[:, 0]
+        validation_rmse = rmse(arome_t2m + final_rmse_X,
+                               arome_t2m + y_val.to_numpy())
         prog_bar.set_postfix({'loss': f"{np.mean(total_loss):.4f}",
-                                "val_loss": f"{np.mean(total_val_loss):.4f}",
-                                "val_rmse": f"{validation_rmse:.4f}"})
-
+                              "val_loss": f"{np.mean(total_val_loss):.4f}",
+                              "val_rmse": f"{validation_rmse:.4f}"})
 
         if validation_rmse < best_rmse:
             best_rmse = validation_rmse
             best_loss = np.mean(total_val_loss)
             best_params = params
+            best_model = model
 
     os.makedirs('models/', exist_ok=True)
 
@@ -231,9 +241,7 @@ def main():
     print(best_rmse)
     print(best_params)
 
-    exit()
-
-    torch.save(model, 'models/diamond_dnn.pt')
+    torch.save(best_model, 'models/best_diamond_dnn.pt')
     dump(scaler, 'models/X_train_scaler.bin', compress=True)
 
 
