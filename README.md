@@ -41,6 +41,7 @@ The dataset is generated using the `dataset/prepare_dataset.py` script.
 `src/train_xgboost*.py` trains xgboost models as denoted by name of script.
 
 `src/ML_correction.ipynb` constructs and saves the test dataset with bias correction models, also computes RMSE and Feature importance for XGBoost.
+`src/evaluation_finalfinal.ipynb` generates report plots, conducts KS experiment and performs OLS fit
 
 
 
