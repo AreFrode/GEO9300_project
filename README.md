@@ -27,7 +27,7 @@ The `dataset/` directory contains:
 
 ## Requirements
 
-In order to run the code, plase install the provided conda environment as follows
+In order to run the code, please install the provided conda environment as follows
 ```bash
 $ conda env create -f environment.yml
 $ conda activate myenv
