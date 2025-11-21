@@ -1,9 +1,6 @@
 # GEO9300_project
 Project work for the course GEO9300 offered by the University of Oslo
 
-## Project Overview
-*[This section will be updated when we know what we will be working on]*
-
 ## Repository Structure
 
 ```
@@ -11,6 +8,8 @@ GEO9300_project/
 ├── dataset/     # Raw and processed data files
 ├── biblio/      # Bibliography and reference material
 ├── src/         # Source code
+├── src/models/  # Model weights and data scaling parameters
+├── figures/     # Figures from development or report
 ├── report/      # Project report
 └── README.md    # This file
 ```
@@ -23,14 +22,17 @@ The `dataset/` directory contains:
 - 2025_KVS_buoy17_deployment_nonQCdata_v01.nc
 - 2025_KVS_deployment_nonQCdata_v01.nc
 - SvalMIZ-25_SnowDepth-IceThickness.csv
+- CARRA/
+- AROME_ARCTIC/ (The AROME Arctic data is actually not available due to storage limitations, but can be provided upon request / accessed on [THREDDS](https://thredds.met.no/thredds/catalog/aromearcticarchive/2025/catalog.html))
 
-## Methods
-
-*[Brief overview of analysis - tbe]*
 
 ## Requirements
 
-*[List of conda env]*
+In order to run the code, plase install the provided conda environment as follows
+```bash
+$ conda env create -f environment.yml
+$ conda activate myenv
+```
 
 ## Usage
 
