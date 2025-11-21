@@ -1,3 +1,5 @@
+# Train a shallow Neural Network
+
 import torch
 import os
 
@@ -205,8 +207,8 @@ def main():
     print(best_rmse)
     print(best_params)
 
-    # torch.save(best_model, 'models/best_simple_nn.pt')
-    # dump(scaler, 'models/simple_X_train_scaler.bin', compress=True)
+    torch.save(best_model, 'models/best_simple_nn.pt')
+    dump(scaler, 'models/simple_X_train_scaler.bin', compress=True)
 
 
 if __name__ == "__main__":

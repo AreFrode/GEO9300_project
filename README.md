@@ -21,9 +21,9 @@ The `dataset/` directory contains:
 - 2025_KVS_deployment_nonQCdata_v01.nc
 - SvalMIZ-25_SnowDepth-IceThickness.csv
 - CARRA/
-- AROME_ARCTIC/            # The AROME Arctic data is actually not available due to storage limitations, but can be provided upon request / accessed on [THREDDS](https://thredds.met.no/thredds/catalog/aromearcticarchive/2025/catalog.html)
+- AROME_ARCTIC/            # The AROME Arctic data is not available due to storage limitations, but can be provided upon request / accessed on [THREDDS](https://thredds.met.no/thredds/catalog/aromearcticarchive/2025/catalog.html)
 - prepared_buoy_data.csv   # Dataset with Buoys, AROME Arctic and CARRA unified
-- buoy_10_w_models.csv     # Test dataset with results from developed model
+- buoy_10_w_models.csv     # Test dataset with results from developed models
 
 ## Requirements
 
@@ -35,7 +35,14 @@ $ conda activate myenv
 
 ## Usage
 
-*[How to run the code]*
+The dataset is generated using the `dataset/prepare_dataset.py` script.
+
+`src/simple_ml_correction.py` and `src/ml_correction.py` trains neural network models.
+`src/train_xgboost*.py` trains xgboost models as denoted by name of script.
+
+`src/ML_correction.ipynb` constructs and saves the test dataset with bias correction models, also computes RMSE and Feature importance for XGBoost.
+
+
 
 ## License
 

@@ -1,3 +1,5 @@
+# Train a Deep Neural Network
+
 import torch
 import os
 
@@ -240,8 +242,8 @@ def main():
     print(best_rmse)
     print(best_params)
 
-    # torch.save(best_model, 'models/best_diamond_dnn.pt')
-    # dump(scaler, 'models/X_train_scaler.bin', compress=True)
+    torch.save(best_model, 'models/best_diamond_dnn.pt')
+    dump(scaler, 'models/X_train_scaler.bin', compress=True)
 
 
 if __name__ == "__main__":
