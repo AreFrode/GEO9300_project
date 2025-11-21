@@ -1,0 +1,13 @@
+name: geo9300_newer
+channels:
+  - defaults
+dependencies:
+  - pytorch=2.6.0
+  - ipykernel
+  - pandas
+  - scikit-learn
+  - tqdm
+  - matplotlib
+  - seaborn
+  - py-xgboost
+prefix: /home/arefk/miniconda3/envs/geo9300_newer
