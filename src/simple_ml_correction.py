@@ -49,6 +49,7 @@ def add_cyclic_time(df):
 
     return df
 
+
 def rmse(pred, target):
     return np.sqrt(np.mean((pred - target)**2))
 # #### Prepare data
@@ -185,12 +186,12 @@ def main():
 
         # print(final_rmse_X[:5])
         # print(kvs['arome_t2m'].shape)
-        arome_t2m = scaler.inverse_transform(X_val[:, :2])[:,0]
-        validation_rmse = rmse(arome_t2m + final_rmse_X, arome_t2m + y_val.to_numpy())
+        arome_t2m = scaler.inverse_transform(X_val[:, :2])[:, 0]
+        validation_rmse = rmse(arome_t2m + final_rmse_X,
+                               arome_t2m + y_val.to_numpy())
         prog_bar.set_postfix({'loss': f"{np.mean(total_loss):.4f}",
-                                "val_loss": f"{np.mean(total_val_loss):.4f}",
-                                "val_rmse": f"{validation_rmse:.4f}"})
-
+                              "val_loss": f"{np.mean(total_val_loss):.4f}",
+                              "val_rmse": f"{validation_rmse:.4f}"})
 
         if validation_rmse < best_rmse:
             best_rmse = validation_rmse
@@ -204,9 +205,8 @@ def main():
     print(best_rmse)
     print(best_params)
 
-
-    torch.save(best_model, 'models/best_simple_nn.pt')
-    dump(scaler, 'models/simple_X_train_scaler.bin', compress=True)
+    # torch.save(best_model, 'models/best_simple_nn.pt')
+    # dump(scaler, 'models/simple_X_train_scaler.bin', compress=True)
 
 
 if __name__ == "__main__":
