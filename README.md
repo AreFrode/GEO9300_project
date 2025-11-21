@@ -16,15 +16,14 @@ GEO9300_project/
 
 ## Data
 
-*[Here we can describe the datasets used, sources, and processing]*
-
 The `dataset/` directory contains:
 - 2025_KVS_buoy17_deployment_nonQCdata_v01.nc
 - 2025_KVS_deployment_nonQCdata_v01.nc
 - SvalMIZ-25_SnowDepth-IceThickness.csv
 - CARRA/
-- AROME_ARCTIC/ (The AROME Arctic data is actually not available due to storage limitations, but can be provided upon request / accessed on [THREDDS](https://thredds.met.no/thredds/catalog/aromearcticarchive/2025/catalog.html))
-
+- AROME_ARCTIC/            # The AROME Arctic data is actually not available due to storage limitations, but can be provided upon request / accessed on [THREDDS](https://thredds.met.no/thredds/catalog/aromearcticarchive/2025/catalog.html)
+- prepared_buoy_data.csv   # Dataset with Buoys, AROME Arctic and CARRA unified
+- buoy_10_w_models.csv     # Test dataset with results from developed model
 
 ## Requirements
 
@@ -40,11 +39,11 @@ $ conda activate myenv
 
 ## License
 
-This project is licensed under the GPL-3.0 License - see the [LICENSE](LICENSE) for for details.
+This repository is licensed under the GPL-3.0 License - see the [LICENSE](LICENSE) for for details.
 
 ## Contact
 
 - **Authors**: Mats Ippach, Are Frode Kvanum
 - **Email**: m.r.ippach@geo.uio.no, arefk@met.no
 
-*Last updated: September 2025*
+*Last updated: November 2025*
