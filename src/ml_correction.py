@@ -87,10 +87,9 @@ def rmse(pred, target):
 def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
-
-    path_data = "../dataset/"
-    buoys_df = pd.read_csv(
-        f"{path_data}prepared_buoy_data.csv", index_col=[0, 1])
+    #path_data="../dataset/"
+    path_data = "//kant.uio.no/geo-geofag-u1/matsip/PHD_BioGov/Courses/GEO9300_autumn2025/GEO9300_project/GEO9300_project/dataset/"
+    buoys_df = pd.read_csv(f"{path_data}prepared_buoy_data.csv", index_col=[0, 1])
 
     # Keep buoy10 for testing
     kvs = buoys_df.loc[['KVS_SvalMIZ_03',

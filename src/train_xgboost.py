@@ -12,7 +12,8 @@ from ml_correction import add_cyclic_time
 
 
 def main():
-    path_data = "../dataset/"
+    #path_data = "../dataset/"
+    path_data = "//kant.uio.no/geo-geofag-u1/matsip/PHD_BioGov/Courses/GEO9300_autumn2025/GEO9300_project/GEO9300_project/dataset/"
     buoys_df = pd.read_csv(
         f"{path_data}prepared_buoy_data.csv", index_col=[0, 1])
 
